@@ -1,0 +1,232 @@
+Теперь снова нажимаем на GR_Engine.cpp и вставляем следующий код:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GREngine.cpp Visual Studio 8 Version.
+// It's An GreenRay GREngine Source File.
+// Made Specially For Implement 3D Engine Parameters.
+/*****************************************************************************/
+//#pragma comment(lib,"d3d9.lib");
+//#pragma comment(lib,"d3dx9.lib");
+#include <GR_Engine.h>
+
+////////////////////////////////////////////////////////////////////////////////
+// Global Variables 
+////////////////////////////////////////////////////////////////////////////////
+IDirect3DDevice9* m_pDevice = NULL; //The Direct3D Device Interface
+
+//-----------------------------------------------------------------------------
+// Name: CreateDirect3D()
+// Desc: Эта функция создаёт основное Direct3D устройство
+//-----------------------------------------------------------------------------
+HRESULT CreateDirect3D(HWND Hndl_Wnd)
+{
+  HRESULT m_pResult = S_OK; //Set Result By Default
+  IDirect3D9* m_pDirect3D = NULL; //This General Direct3D Initialization Interface
+
+  //Создаём объект Direct3D
+  m_pDirect3D = Direct3DCreate9(D3D_SDK_VERSION);
+
+  //Проверяем, если возникнет ошибка то освобождаем D3D интерфейс
+  if (!m_pDirect3D)
+  {
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();
+    MessageBoxA(NULL,"GR_Engine.cpp: Failed To Create Direct3D Interface..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //Автоматическая проверка параметров поддерживаемых дисплеем
+  //далее полученные параметры помещаются в стркутуру m_pDisplay
+  D3DDISPLAYMODE m_pDisplay; 
+  if (FAILED(m_pDirect3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&m_pDisplay)))
+  {
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();
+    MessageBoxA(NULL,"GR_Engine.cpp: Failed Get Adapter Display Mode..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //All System Checks Passed, Create The Direct3D Device
+  D3DPRESENT_PARAMETERS m_pD3DParam;
+  memset(&m_pD3DParam,0,sizeof(m_pD3DParam));
+
+  //Установка параметров и режимов работы Direct3D устройства 
+  m_pD3DParam.SwapEffect                 = D3DSWAPEFFECT_DISCARD; //D3DSWAPEFFECT_COPY;
+  
+  //Установка разрешения
+  m_pD3DParam.BackBufferWidth            = 640; 
+  m_pD3DParam.BackBufferHeight           = 480;
+  //Здесь указывается режим работы устройства в полный экран (FALSE) или в окне (TRUE)
+  //угадайте в каком режиме будет у нас :-))
+  m_pD3DParam.Windowed                   = TRUE;
+
+  //Формат заднего буфера, обычно определяется автоматически (m_pDisplay.Format), 
+  //но можно указать и вручную в зависимости от поставленных целей
+  m_pD3DParam.BackBufferFormat           = m_pDisplay.Format; //D3DFMT_A8R8G8B8 
+
+  //Данный параметр необходимо раскомментировать лишь в том случае, если наше 
+  //приложение будет работать на полный экран (здесь как правило указывается 
+  //частота развёртки монитора) крайне не советую "играться" с этим параметром, 
+  //пусть уж частота определится автоматически (m_pDisplay.RefreshRate)
+  //m_pD3DParam.FullScreen_RefreshRateInHz = m_pDisplay.RefreshRate; //D3DPRESENT_RATE_DEFAULT; 
+  
+  //Включение "стенсельного" буфера, в основном предназначен в дальнейшем для отрисовки
+  //эффектов теней и зеркал, короче повторяет очертания исходного объекта
+  m_pD3DParam.EnableAutoDepthStencil     = TRUE;
+
+  //Здесь уже указывается формат "стенсельного" буфера
+  m_pD3DParam.AutoDepthStencilFormat     = D3DFMT_D16; //D3DFMT_D16 D3DFMT_D15S1 D3DFMT_D24X8
+                                                       //D3DFMT_D24S8 D3DFMT_D24X4S4 D3DFMT_D32
+  
+  //Количество задних буферов
+  m_pD3DParam.BackBufferCount            = 2;
+
+  //Кол-во степеней сглаживания для антиалиасинга
+  m_pD3DParam.MultiSampleType            = D3DMULTISAMPLE_4_SAMPLES; //4_SAMPLES //For Antialiasing Mode On 4x
+  
+  //Качество сглаживания
+  //m_pD3DParam.MultiSampleQuality       = 1;
+  
+  //Буфер глубины обычно активируется для создания эффекта Shadow Volume "тень" 
+  //m_pD3DParam.Flags                    = D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL; //|D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
+  
+  //Интервал представления отображаемых объектов и игровой сцены
+  m_pD3DParam.PresentationInterval       = D3DPRESENT_INTERVAL_ONE;
+
+  //Если раскомментировать этот параметр, то ощутится явный прирост fps и вообще
+  //сцена начнёт отображаться существенно быстрее, т.е помимо видеокарты в процессе 
+  //рендеринга начнёт участвовать ваш центральный процессор и загрузит его на 100%
+  //Данный параметр использовать не рекомендуется, система работает на износ..
+  //Да и вообще процессорное время лучше поберечь для других нужд, 
+  //хотя-бы на обработку физики игры..
+  //m_pD3DParam.PresentationInterval     = D3DPRESENT_INTERVAL_IMMEDIATE;
+
+  //Создание Direct3D устройства, "скармливаем" ранее установленные параметры нашему устройству
+  //Также указываем Handle (Hndl_Wnd) нашего ранее созданного окна, то бишь полотна куда будет выводиться графика 
+  if (FAILED(m_pDirect3D->CreateDevice(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,Hndl_Wnd,
+  D3DCREATE_HARDWARE_VERTEXPROCESSING,&m_pD3DParam,&m_pDevice)))
+  {
+    //Ошибка создания Direct3D устройства освобождаем его
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();    
+    //Вообще если возникает подобная ошибка, значит мы "скормили" нашему устройству 
+    //неверные или не поддерживаемые видеокартой параметры, попробуйте "поиграться" с другими 
+    //значениями выставляемые в параметрах, а может вы забыли поставить "дрова" на видеокарту?? :-))))
+    MessageBoxA(NULL,"GR_Engine.cpp: Error Creating Direct3D Device..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //Ending Direct3D Presets Parameters
+  if (m_pDevice != NULL)
+  {
+    //Установка режимов рендера:
+    //Весьма интересный и нужный режим состояния рендера
+    //при этом режиме происходит "отсечение" невидимых взору граней (полигонов), т.е
+    //граней находящихся с задней стороны модели или 3D объекта, они попросту не ренерятся
+    //и не отображаюся, это позволяет очень сильно разгрузить работу нашей видеокарты и всей
+    //системы в целом.
+    //Режим D3DCULL_CW - устанавливает отсечение невидимый граней
+    //Режим D3DCULL_CСW - устанавливает тоже отсечение только уже видимых граней (инверсия)
+    //Режим D3DCULL_NONE - отключает оба этих режима рендерится вся модель как есть даже 
+    //её внутренние части, это уже слишком тяжело для видеокарты, сразу же ощущается падение fps
+    //после установки этого режима.
+    m_pDevice->SetRenderState(D3DRS_CULLMODE,D3DCULL_CW);
+    
+    //Включаем буфер глубины или Z-Buffer, или эффект отдаления объектов или моделей
+    //"вглубь" экрана, да уж совсем образно объяснил..
+    m_pDevice->SetRenderState(D3DRS_ZENABLE,D3DZB_TRUE);
+
+    //Режим освещения, нам он пока не нужен, поэтому FALSE
+    m_pDevice->SetRenderState(D3DRS_LIGHTING,FALSE); 
+   
+    //Режим рендера отображающий полигоны не цельными SOLID, а в режиме сетки WIREFRAME
+    //m_pDevice->SetRenderState(D3DRS_FILLMODE,D3DFILL_WIREFRAME);
+    
+    //Установка цвета амбиентного (общего) освещения
+    //m_pDevice->SetRenderState(D3DRS_AMBIENT,0xFFFFFFFF);
+    
+    //Данная установка включает режим работы антиалиасинга (прменения эффекта сглаживания 
+    //рёбер или неровности краёв полигона называется антиалиасингом), нам пока не нужен 
+    //поэтому закомментирован
+    //m_pDevice->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS,TRUE);
+    
+    //Установка режима закраски по Гуро, обычно она устанавливается по умолчанию 
+    //(закраска по Гуро обычно нужна для сглаживания одутлых или круглых поверхностей,
+    //например чтобы шар походил на шар, а не на ребристый комок)
+    //m_pDevice->SetRenderState(D3DRS_SHADEMODE,D3DSHADE_GOURAUD);
+  }
+
+  if (m_pDirect3D != NULL) m_pDirect3D->Release(); //Освобождаем Direct3D интерфейс он 
+  //выполнил своё предназначение
+  return m_pResult; //В конце возвращаем результат работы функции
+} //EndCreateDirect3DFunction
+
+//Примечание! Я всё время везде употребляю слово "рендер", а что же это такое
+//спросите вы, да всё очень просто Рендер - это отображение, отрисовка если хотите 
+//вашего объекта или игровой сцены на экране, или конечный результат обработки данных,
+//расчета освещения и.др и последующий вывод на экран монитора, еще иногда 
+//употребляют слово "рендерится".
+
+//-----------------------------------------------------------------------------
+// Name: RenderingDirect3D()
+// Desc: Здесь в этой процедуре происходит отрисовка нашей игровой сцены
+//-----------------------------------------------------------------------------
+void RenderingDirect3D()
+{   
+  if (m_pDevice != NULL) 
+  {
+    //Здесь идёт очистка заднего и Z-буфера соответственно..
+    m_pDevice->Clear(0,NULL,D3DCLEAR_TARGET/*|D3DCLEAR_STENCIL*/,D3DCOLOR_XRGB(0,0,0),1.0f,0);
+    
+    //Begin Scene
+    if (SUCCEEDED(m_pDevice->BeginScene()))
+    {
+
+      //Здесь и происходит отрисовка нашей конечной сцены
+      //начиная от отрисовки моделей, освещения, и заканчивая шейдерными эффектами.
+      //Иными словами рендеринг игровой сцены...
+      //Vitia_Bubuka->Draw();
+
+      m_pDevice->EndScene();
+    }
+    m_pDevice->Present(NULL,NULL,NULL,NULL);
+  }
+} //EndRenderingDirect3DProcedure
+
+//-----------------------------------------------------------------------------
+// Name: ReleaseDirect3D()
+// Desc: Освобождение ресурсов и устройства Direct3D
+//-----------------------------------------------------------------------------
+void ReleaseDirect3D()
+{
+  if (m_pDevice != NULL) m_pDevice->Release();
+} //EndReleaseDirect3DProcedure
+
+//------------------------------------------------------------------------------
+
+[/code]
+
+Не забываем сохраниться, затем компилируем наш проект, в итоге должно появиться уже не белое как ранее, а чёрное окно как на рисунке:
+
+[IMG]http://s2.ipicture.ru/uploads/20130522/G16dTUuh.jpg[/IMG]
+
+Это говорит, что наше Direct3D устройство нормально создалось и инициализировалось,
+Так как происходит очистка заднего буфера, то экран становится чёрным, в принципе можно "поиграться" с цветом заднего буфера, его цвет задаётся в строке:
+
+[code=cpp]
+m_pDevice->Clear(0,NULL,D3DCLEAR_TARGET/*|D3DCLEAR_STENCIL*/,D3DCOLOR_XRGB(0,0,0),1.0f,0);
+[/code]
+
+В параметре: D3DCOLOR_XRGB(0,0,0) – это RGB палитра, так, что к примеру выставление параметра D3DCOLOR_XRGB(255,0,0) приведёт к заливке экрана красным цветом, величина 255 это интенсивность цвета и лежит в пределах от 0..255.
+
+Всё! заготовка ("болванка" так сказать) нашего игрового движка полностью готова, на её основе можно полноценно дальше создавать игру, добавляя все новые и новые возможности.
+
+В последующих частях мы продолжим разбирать движок GRE, "прикрутим" к нему игровую камеру, загрузим высокополигональную модель, добавим освещение и SkyBox. 
+
+Продолжение следует..
+_________________________________________________________________________
+© Digital Dreams Development Inc., 2009 
+(С) GR-Engine Technical Documentation.
+Любая публикация изложенного материала только с разрешения автора.

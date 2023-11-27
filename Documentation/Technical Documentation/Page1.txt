@@ -1,0 +1,632 @@
+[color=darkblue][b][SIZE=6]Программирование игрового движка GR-Engine.[/SIZE][/b][/color]
+
+Автор: [color=blue]php (Танцер Максим aka Verg)[/color]
+
+[b]Введение.[/b]
+
+Здравствуйте друзья!
+
+Представляю вашему вниманию свой первый коллективный проект посвящённый
+циклу статей по разработке и программированию игрового движка. Первый цикл статей будет предназначен в основном для начинающей аудитории для тех кто ещё не умеет программировать, но уже хочет быстро начать "делать свою игру" без каких-либо лишних заморочек. Второй и последующие циклы будут описывать методы и структуру движка и будет уже предназначен для более профессиональной аудитории.
+
+В приведённых статьях будет взят примером игровой движок GreenRay Engine 
+(впоследствии будет называться сокращенно GRE) моей собственной разработки,
+далее он будет выкладываться блоками всё в новых и новых статьях 
+(всё будет полностью открытым кодом - OpenSource, никаких вызовов из библиотек, 
+что как правило присуще коммерческим версиям движков), так что можно будет его обсуждать и коллективно его дорабатывать, вносить изменения и дополнения, можно даже критиковать, только не очень сильно, т.к это всё делается и приводится в качестве примера, и я сам пока не являюсь профессиональным программистом в области программирования 3D и буду учиться вместе с вами.
+
+[b]Примечание! [/b]Сразу стоит оговориться разработка движка будет вестись в
+среде Visual Studio 2005 (v8.0) в связке C++ и DirectX 9.0c и будут рассматриваться аспекты связанные только с разработкой и программированием GRE, создание моделей,
+текстур и прочее в данных статьях рассматриваться не будут этим занимаются другие разработчики из нашей команды, так, что все вопросы связанные с моделированием или Photoshop будут адресовываться именно им (Master Lucky и Zerg).
+
+Все обсуждения, дополнения, критику, отловленные баги (а они будут :))
+предлагаю вести в отдельных топиках, а затем дополненную и обработанную информацию я буду дополнять в самих статьях (пока так, а потом посмотрим как далее пойдёт)
+
+Так что все желающие прошу присоединяться!!! :)
+
+Итак начнём:
+
+[b][SIZE=6]Часть 1. Подготовка к разработке.[/SIZE][/b]
+
+[b]1.1. Описание возможности движка.[/b]
+
+Сначала опишем, что уже включает и умеет сам движок GRE версии 3.0 
+(версию 2.0 разбирать не будем, т.к изначально он разрабатывался на Delphi):
+
+1. Поддержка довольно большого кол-ва полигонов (максимально тестируемое пока было 300 тыс. полигонов при этом fps (Frames Per Second) - кол-во кадров в секунду) даже не менялось, в принципе я считаю, что при таком кол-ве можно смоделировать неплохой по размерам городской квартальчик (игру GTA (первая часть) в расчёт не берём каково там кол-во полигонов было я не знаю!)
+
+2. Поддержка шейдеров версии 2.0 и 3.0 (освещение по Фонгу)
+
+3. Используется уже готовый физический движок от [b]NVidia PhysX[/b] (ранее принадлежал [b]Ageia PhysX[/b] а до этого вообще был платный и назывался [b]Novodex[/b] до сих пор многие операторы и процедуры начинаются с аббревиатуры [b]Nx[/b], но об этом позже когда будем разбирать сам физический движок)
+
+4. Поддержка аудио библиотек и воспроизведение [b]mp3[/b]
+
+5. Управление и камера от первого лица с использованием [b]DirectInput[/b]
+
+6. Небольшой пользовательский "интерфейсик" с полупрозрачными окнами, и вырезанием окон различной формы по маске одного цвета (естественно слово "окно" здесь должно звучать утрировано, т.к никаких окон в 3D не существует их нужно эмулировать самому, обычно это отрисовка полигона во ViewPorte или некоторые применяют Sprites, я выбрал отрисовку полигона).
+
+[b]Примечание![/b] Полигон - это весьма  абстрактное понятие, обычно служит для визуализации 3D объекта в пространстве и являются составным обычно состоит из треугольников, соответственно сам треугольник состоит из 3х вершин, затем 3D Render объединяет эти вершины в результате на экране мы видим "цельный" треугольник залитый так сказать пикселями (точками) одного или более цветами, на пиксельном уровне уже обычно работают через шейдеры (ретушь, закраска), (в принципе используя шейдеры полигон можно закрасить и разными цветами) о шейдерах будем рассказывать позже. 
+
+7. Отрисовка небесного куба – [b]SkyBox[/b]. Создание иллюзии большого пространства,
+как бы общее окружение облака, горы и прочее.. (позже попробуем разобраться с весьма интересной технологией 3D SkyBox суть его заключается в проецировании уменьшенной фоновой декорации с использованием уменьшенных 3D моделей в реальную сцену окружения, при помощи специальной проецирующей камеры, в рез-те чего создаётся иллюзия огромнейших игровых пространств или больших возвышающихся объектов с применением относительно малого кол-ва полигонов, данная технология впервые была реализована разработчиками в игре Half-Life 2)
+
+[b]1.2. Самое начало..[/b]
+ 
+Далее, что следует разобрать это структуру игрового движка, т.е из
+чего он состоит и с чего начинает программист взявшись за его разработку.
+
+[b]Примечание![/b] Вообще данный раздел содержит пример простейшего создания проекта в среде разработки Visual Studio и предназначен для самых самых новичков, тех кто вообще ничего не смыслит в программировании и считаю, что по приведённому здесь материалу с иллюстрациями в два счёта можно создать новый проект, единственное требование это наличие всех необходимых материалов и средств для разработки – это Visual Studio, DirectX SDK 9.0c и NVidia PhysX..
+
+Итак, приступим: 
+
+1) Для начала устанавливаем среду Visual Studio 2005 
+(у кого нет желательно "приобрести", также подойдёт и более новая версия VS 2008):
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/gV2sUsvZ.jpg[/IMG]
+
+Убираем всякую лишнюю "лабуду" в то время как программа установки спросит какие компоненты нужно установить, оставляем только то, что указано на рисунке ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/A6l759Uq.jpg[/IMG]
+
+[b]Примечание ! [/b]Maintenance Mode у меня потому, что Visual Studio на момент написания статьи уже было установлено на моём компьютере, у вас может быть и по другому.
+
+Далее после того как завершится установка Visual Studio устанавливаем DirectX SDK.
+
+2) Устанавливаем DirectX 9.0 (я пока использую версию DirectX 9.0c April 2005, т.к более устойчивая да и менее глючная (в процессе разработки движка в более новых версиях были выявлены некоторые баги) но в последствии придётся всё же использовать новую версию DX если планируется двигаться дальше вместе с прогрессом и осваивать DX 10 :) так, что можно устанавливать и более новую версию это на разработку движка никак не повлияет:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/J4ZJUIR9.jpg[/IMG]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/kGhu0Zq2.jpg[/IMG]
+
+3) Скачиваем с сайта NVidia физический движок PhysX и устанавливаем его:
+Сначала желательно установить так называемое системное программное обеспечение необходимое для нормального функционирования физического движка для этого придётся скачать файл под названием PhysX_8.10.13_SystemSoftware.exe и установить его: 
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/Aw5T1RDW.jpg[/IMG]
+
+После этого скачиваем файл PhysX_2.8.1_SDK_Core.msi (это PhysX SDK собственной персоной) и устанавливаем его:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/01Sle6Bg.jpg[/IMG]
+
+4) Создаём новый проект, для этого запускаем Visual Studio и заходим в меню File->New->Project… как показано на рисунке ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/Wgd8uKTR.jpg[/IMG]
+
+В появившемся окне выбираем Project types (тип проекта) – General, Templates (шаблоны) – Empty Project, Name (имя проекта) – GRDebugger, Location (месторасположение папки с проектом) – выбираем любое нажав на кнопку Browse (у меня GreenRay), убираем галочку с Create directory for solution, короче говоря делаем всё в точности как показано на рисунке ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/CVb5Xq5K.jpg[/IMG]
+
+Все теперь мы создали совершенно новый пустой проект под названием GRDebugger (имя файла проекта называется GRDebugger.sln этот sln – файл сокращённо от Solution является базовым запустив его по клику мыши мы тут же мгновенно запустим наш проект для отладки и компоновки). Всё поехали дальше..
+
+5) Прописываем пути для заголовочных файлов и библиотек:
+Данная операция необходима для того, чтобы среда Visual Studio понимала и знала во первых где находится само DirectX SDK (SDK – Software Developers Kit) ну и соответственно где находится необходимый для работы DirectX-овский "бутор" это различные заголовочные header (*.h) и *.cpp (C++) файлы, все вызовы идут через них и основным промежуточным звеном является либы (*.lib файлы) это двоичные файлы необходимые для взаимодействия между API-кодом нашей программы и ядром DirectX (Сами файлы ядра находятся в папке Windows\System32 в виде динамических библиотек и имеют имена типа d3d9.dll, d3dx9_36.dll и др. разные имена. Код данных библиотек не доступен никому (кроме самой компании Мелкософт конечно которая их и разрабатывает), мы можем лишь использовать или вызывать из них необходимые нам функции, но не смотреть, а тем более редактировать их, это относится не только к DirectX SDK, но и к PhysX SDK тоже да и вообще к любому виду SDK. Как прописывать подобные библиотеки будет описано ниже в п.7)
+
+Заходим в меню Tools->Options
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/386hM0DO.jpg[/IMG]
+
+В появившемся окне слева в списке раскрываем дерево Projects and Solutions и выбираем VC++Directories, затем сверху из выпадающего списка Show directories for: необходимо выбрать Library files здесь как раз и будет прописан путь к нашим либам для этого нажимаем на пустом месте мышью где находятся другие прописанные пути необходимые среде Visual Studio, и нажимаем на кнопку с троеточием и выбираем путь к папке с либами, у меня по умолчанию путь: 
+[color=darkblue]C:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Lib\x86[/color]
+У вас путь может быть другой в зависимости от версии установленного SDK, обычно по умолчанию он устанавливается в Program Files.
+
+[b]Важно![/b] Данный путь должен быть прописан в самом верху списка т.е до списка уже имеющихся там путей, для этого выделяем наш прописанный путь мышью затем нажатием на стрелку вверх перемещаем данный путь в самый верх списка, если этого не сделать то это будет вызывать ошибку во время компиляции проекта. Смотрим рисунок ниже: 
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/JSRyxaZB.jpg[/IMG]
+
+[b]Примечание ! [/b]Иногда возникает ситуация когда программа установки DirectX SDK автоматически находит и сама прописывает пути в среде Visual Studio их нужно удалить и всё равно прописать или указать вручную, будьте внимательны это очень важный момент !!!
+
+[b]Примечание ! [/b] Если заметить, то выше был указан путь к 32х разрядным версиям библиотек, но счастливые обладатели 64х разрядных систем могут указать путь и к 64х разрядным версиям библиотек !! Путь тогда будет выглядеть уже следующим образом:
+[color=darkblue]C:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Lib\x64[/color]
+
+Также аналогичным образом прописываем пути к заголовочным (*h – файлам и *cpp),
+выбираем из выпадающего списка под названием Show directories for: Include files
+и прописываем или указываем путь: 
+[color=darkblue]C:\Program Files\Microsoft DirectX 9.0 SDK (April 2005)\Include[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/pwe43BzQ.jpg[/IMG]
+
+И нажимаем ОК
+
+[mergetime]1234264368[/mergetime]
+6) Прописываем пути для заголовочных файлов и библиотек PhysX SDK:
+Аналогичным образом как описано выше прописываем пути к PhysX SDK для Library files 
+Путь будет выглядеть следующим образом: 
+[color=darkblue]C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\lib\Win32[/color]
+
+Для Include files будет несколько путей:
+[color=darkblue]C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Cooking\include
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Foundation\include
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\NxCharacter\include
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Physics\include
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Physics\include\cloth
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Physics\include\fluids
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\Physics\include\softbody
+C:\Program Files\NVIDIA Corporation\NVIDIA PhysX SDK\v2.8.1\SDKs\PhysXLoader\include[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/ILGsJR6g.jpg[/IMG]
+
+Нажимаем кнопку ОК. Всё PhysX SDK прописан..
+
+7) Прописываем необходимые Libraries (Lib-библиотеки):
+Это необходимо для дальнейшей компиляции и разработки самого движка, поэтому
+пропишем их все и сразу, чтоб в дальнейшем к ним не возвращаться и не акцентировать на них своё внимание, для этого заходим в меню Project->GRDebugger Properties… или нажимаем комбинацию клавиш Alt+F7
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/gNfiv5a0.jpg[/IMG]
+
+В появившемся окне в раскрывающемся "дереве" выбираем Configuration Properties->Linker->Input далее нажимаем мышью на пункте Additional Dependencies в поле появится кнопка с троеточием для выбора подключаемых библиотек см. рисунок ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/pYCsTTHk.jpg[/IMG]
+
+В окне Additional Dependencies прописываем через пробел или нажимаем Enter после каждой библиотеки:
+
+Список необходимых библиотек:
+[color=darkblue]d3d9.lib d3dx9.lib d3dx9d.lib d3dxof.lib dinput.lib dinput8.lib dxguid.lib winmm.lib dsound.lib strmiids.lib PhysXLoader.lib[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/AylRe2jU.jpg[/IMG]
+
+После того как все либы (*.lib) прописаны нажимаем OK.
+
+В принципе библиотеки можно было бы прописать и в теле программы, используя конструкции типа:
+[code=cpp]
+#include <d3d9.h>
+#include <d3dx9.h>
+
+#pragma comment(lib,"d3d9.lib")
+#pragma comment(lib,"d3dx9.lib")
+
+[/code]
+
+Я выбрал способ непосредственной интеграции библиотек в "тело"  проекта.
+
+Теперь, что касается strmiids.lib остутствие её будет вызывать ошибку после процесса компиляции данная либа не прилагается в поставке DirectX SDK, её можно взять из файла: Sound_Modules.rar
+в самом низу статьи.
+
+После, того как вы скачаете этот файл его нужно разархивировать в папку:
+[color=darkblue]C:\GreenRay\GRDebugger\Sound_Modules\Lib[/color]
+
+Этот lib-файл будет необходим нам в будущем во время реализации функции проигрывания mp3-файлов в движке, также нужно скачать раздел Common для работы со звуком он частично взят из раздела DirectShow (были взяты только файлы необходимые для работы с mp3),
+находится в том же файле: Sound_Modules.rar
+
+Раздел Common нужно разархивировать в папку:
+[color=darkblue]C:\GreenRay\GRDebugger\Sound_Modules\Common[/color]
+
+Теперь нужно прилинковать эти файлы к среде Visual Studio, делаем, это точностью также как мы поступали с DirectX SDK и PhysX SDK. Заходим в меню Tools->Options,
+в появившемся окне Options из списка слева раскрываем Projects and Solutions и выбрать VC++Directories, далее из выпадающего списка Show directories for: выбираем
+Library files и прописываем путь куда мы ранее разархивировали файл strmiids.lib, он должен быть  в папке [color=darkblue]C:\GreenRay\GRDebugger\Sound_Modules\Lib[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/lVcQs9e2.jpg[/IMG]
+
+Дальше прописываем путь к ранее скачанной папке Common, аналогично только в выпадающем списке Show directories for: выбираем Include files: и прописываем путь
+[color=darkblue]C:\GreenRay\GRDebugger\Sound_Modules\Common[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/4fRK6dc4.jpg[/IMG]
+
+Нажимаем кнопку ОК. 
+Всё все необходимые либы у нас есть и прописаны.
+
+[b][SIZE=6]Часть 2. Проектирование игрового движка.[/SIZE][/b]
+
+[b]2.1. Создание игрового полотна.[/b]
+Под таким страшным названием скрывается обычное создание виндового (Windows) окна, которое будет служить "подложкой" для вывода и отрисовки трёхмерного пространства и всей графики и игровой сцены в целом.
+
+1) Сначала создадим файл Form_Layer.cpp (в принципе название может быть и любое другое, на ваше усмотрение, но всё же советую создавать все модули с названиями как у меня, иначе впоследствии потеряем все связки, да и вообще потом получится "каша" особенно в разделе #include я буду приводить код с одним названием модуля, а у вас будет называться по другому, в прочем ваше дело :)) моё дело предупредить)
+
+Для этого в "дереве" нашего проекта выбираем Source Files и нажимаем на нём правой кнопкой мыши, далее из выпадающего меню выбираем Add->New Item…
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/xpCtsilG.jpg[/IMG]
+
+В появившемся окне New Item в колонке Categories: выбираем пункт Code, в Templates выбираем C++ File (.cpp), в строке Name: прописываем имя файла Form_Layer, 
+Создадим папку под названием Engine_Modules где будут храниться модули и исходные коды самого движка, так удобнее, для этого заходим в папку где находится наш ранее созданный проект, она должна быть по пути C:\GreenRay\GRDebugger\ и в ней создаём папку Engine_Modules, затем возвращаемся к Visual Studio в строке Location: указываем местоположение где будет находиться этот файл. Необходимо, чтобы он создался в папке Engine_Modules поэтому в строке Location: будет путь [color=darkblue]C:\GreenRay\GRDebugger\Engine_Modules[/color] см. рисунок ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/8sO2xUBx.jpg[/IMG]
+
+Всё нажимаем кнопку Add
+
+Теперь таким же образом нужно создать заголовочный Header File (.h), для этого также в "дереве" проекта нажимаем правой кнопкой на Header Files и выбираем Add->New Item.. В появившемся окне New Item в колонке Categories: выбираем пункт Code, в Templates выбираем Header File (.h), в строке Name: также прописываем имя файла Form_Layer, Location: остаётся тот же без изменений [color=darkblue]C:\GreenRay\GRDebugger\Engine_Modules[/color]
+Всё снова нажимаем кнопку Add. У нас появилось в "дереве" нашего проекта два файла – файл содержащий код .cpp и заголовочный файл .h содержащий вызовы процедур или функций и прочие параметры необходимые для работы всего проекта в целом.
+Но для нормального взаимодействия между файлом кода .cpp и .h его нужно прописать в среде Visual Studio, тут ничего нового заходим в меню Tools->Options в окне Options из списка выбираем Project and Solutions->VC++Directories и в выпадающем списке Show directories for: выбираем Include files и добавляем туда путь [color=darkblue]C:\GreenRay\GRDebugger\Engine_Modules[/color]
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/yN91jpUW.jpg[/IMG]
+
+Нажимаем ОК, файлы прилинкованы к проекту.
+
+Всё вся эта канитель завершена, небось уже поднадоела вся эта процедура по собиранию и компоновке движка ? :), но процедура согласитесь нужная, и надеюсь позволит избежать лишних вопросов в будущем!
+
+Ок теперь всё скомпоновано, среда Visual Studio настроена, 
+и можно начинать полноценное программирование..
+
+2) Создание полотна для вывода графики.
+Возвращаемся к "дереву" нашего проекта, делаем двойной щелчок мыши на файле Form_Layer.cpp перед нами появится пустой экран где можно вводить код. 
+
+Вот вам домашнее задание: Необходимо создать окно на Win API, и продумать методы и процедуры инициализации Direct3D, определить, какие возможности поддерживает ваша видеокарта…. Шутка :-)..
+
+Копируем и вставляем этот код в ваше пустое окно файла Form_Layer.cpp:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine Debugger Module v.3.0.0.1
+// Form_Layer.cpp Visual Studio 8 Version.
+// It's An GreenRay Form_Layer Source File.
+// Made Specially For Check And Debugging 3DEngine.
+/*****************************************************************************/
+#define STRICT //Обеспечивает переносимость кода, к примеру мы прогу пишем на другой
+//винде 16-разрядной, а объявление этого параметра позволит избежать многих ошибок при 
+//компиляции уже под 32 разрядной ОС и наоборот.
+//Использование STRICT позволяет: 
+//1) выполнять строгую проверку типов; 
+//2) корректировать и согласовывать описания типа параметра и возвращаемого значения; 
+//3) создавать прототипы определений типов для функций обратного вызова (оконные, диалоговые и специальные процедуры); 
+//4) согласовывать с ANSI описания структур COMM, DCB и COMSTAT. 
+//ну и многое другое, не будем уже углубляться в эти программистские Debri.
+
+#define WIN32_LEAN_AND_MEAN //Позволяет обойти ошибки множественного объявления 
+//структур при подключении заголовочных файлов уже имеющих эти структуры. 
+
+#include "Form_Layer.h" //Объявляем здесь наш заголовочный Header-файл
+
+////////////////////////////////////////////////////////////////////////////////
+// External Definitions And Prototypes 
+////////////////////////////////////////////////////////////////////////////////
+LRESULT CALLBACK WindowProcessing(HWND Hndl_Wnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nCmdShow);
+
+//-----------------------------------------------------------------------------
+// Name: WindowProcessing()
+// Desc: Здесь обрабатываются оконные сообщения
+//-----------------------------------------------------------------------------
+LRESULT CALLBACK WindowProcessing(HWND Hndl_Wnd,UINT Msg,WPARAM wParam,LPARAM lParam)
+{
+  switch(Msg)
+  {
+    case WM_KEYDOWN:
+    {
+      if (wParam == VK_ESCAPE) //Перехватили нажатие кнопки Esc на клавиатуре
+      {
+        PostQuitMessage(0); break; //Обрабатываем
+      }
+    }
+    break;
+
+    case WM_CLOSE: //Перехватили момент закрытия окна при нажатии на крестике в углу экрана 
+    {
+      PostQuitMessage(0); //Обрабатываем
+    }
+        
+    case WM_DESTROY: //Перехватили момент закрытия окна через трей или диспетчер задач Windows
+    {
+      PostQuitMessage(0); //Обрабатываем
+    }
+    break;
+
+    default:
+    {
+      return DefWindowProc(Hndl_Wnd,Msg,wParam,lParam); //А иначе продолжаем обрабатывать сообщения
+    }
+    break;
+  }
+  return 0;
+
+  //Вообще здесь можно обрабатывать любые оконные сообщения, по сути даже осуществить 
+  //управление игровым персонажем, но мы будем использовать для этого DirectInput.
+} //EndWindowProcessingFunction
+
+//-----------------------------------------------------------------------------
+// Name: WinMain()
+// Desc: Эта функция предназначена для создания нашего окна
+// Это является точкой входа для нашего приложения, иначе в процессе компиляции
+// вернётся сообщение об ошибке: Entry point must be defined.
+//-----------------------------------------------------------------------------
+int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
+LPSTR lpCmdLine,int nCmdShow)
+{
+  WNDCLASSEX WindowClass; //Структура необходимая для регистрации оконного класса 
+  MSG uMsg; //Оконные сообщения
+  HWND Hndl_Wnd = NULL; //Дескриптор оконного класса
+
+  int FormWidth = 640; //Ширина нашего окна 
+  int FormHeight = 480; //Высота нашего окна
+  LPCSTR FormCaption = "GreenRay Engine v3.0.0.1"; //Название выводимое в заголовке окна
+
+  memset(&uMsg,0,sizeof(uMsg)); //Передача в структуру флага для оконных сообщений
+
+  //Установка параметров окна, таких как цвет, иконка, стиль окна, курсор
+  //и передача их структуре WNDCLASSEX
+  WindowClass.lpszClassName = "MainWindow";
+  WindowClass.cbSize        = sizeof(WNDCLASSEX);
+  WindowClass.style         = CS_DBLCLKS|CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
+  WindowClass.lpfnWndProc   = WindowProcessing;
+  WindowClass.hInstance     = hInstance;
+  WindowClass.hIcon            = ::LoadIcon(0,IDI_APPLICATION);
+  WindowClass.hIconSm        = ::LoadIcon(0,IDI_APPLICATION);
+  WindowClass.hCursor       = LoadCursor(NULL,IDC_ARROW);
+  WindowClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+  WindowClass.lpszMenuName  = NULL;
+  WindowClass.cbClsExtra    = 0;
+  WindowClass.cbWndExtra    = 0;
+
+  //Регистрация класса окна
+  if (!RegisterClassEx(&WindowClass)) return E_FAIL;
+
+  //Теперь когда класс зарегистрирован можно создавать само окно
+  Hndl_Wnd = CreateWindowEx(NULL,              //Window Style
+                         "MainWindow",         //Window Class Name 
+                         FormCaption,          //Caption Of The Window
+                         WS_OVERLAPPEDWINDOW,  //Window Style Criterium
+                         100,100,              //Left And Top Corner On Desktop
+                         FormWidth,FormHeight, //Width And Height Of The Window
+                         NULL,                 //Descriptor Of Parent Window
+                         NULL,                 //Descriptor Of The Window Menu
+                         hInstance,            //Descriptor Of Example Application
+                         NULL);                //Pointer On Data Created Window
+
+  //Если создание окна прошло неудачно, то функция вернёт ошибку
+  if (Hndl_Wnd == NULL) return E_FAIL;
+
+  ShowWindow(Hndl_Wnd,nCmdShow); //Иначе покажем
+  UpdateWindow(Hndl_Wnd); //и обновим наше окно
+
+
+  //Здесь наше окно начинает интенсивно обрабатывать сообщения от Windows
+  while (uMsg.message != WM_QUIT)
+  {
+    if (PeekMessage(&uMsg,NULL,0,0,PM_REMOVE)) //Нддаа если возникает это событие, то
+                                               //происходит уже явный перебор потока сообщений!
+    {                                          //они начинают попросту удаляться из потока (данный манёвр 
+                                               //позволяет немного разгрузить процессор)
+      TranslateMessage(&uMsg); //Трансляция, перевод потока сообщений
+      DispatchMessage(&uMsg); //Обслуживание потока сообщений
+    } 
+  }
+ 
+  //Выгрузка оконного класса он выполнил своё предназначение ;)
+  UnregisterClass("MY_WINDOWS_CLASS",WindowClass.hInstance);
+  return uMsg.wParam;
+} //EndWinMainFunction
+
+[/code]
+
+Теперь делаем двойной щелчок мыши в "дереве" проекта на файле Form_Layer.h
+Код у него будет следующим: 
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine Debugger Module v.3.0.0.1
+// Form_Layer.h
+// It's An GreenRay Form_Layer Header File.
+// Made Specially For Check And Debugging 3DEngine Keep Needed Engine Imports.
+/*****************************************************************************/
+#define STRICT
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+
+//Windows And System Directives
+#include <windows.h>
+#include <atlstr.h>   
+#include <stdio.h>
+#include <tchar.h>
+#include <wchar.h>
+#include <strsafe.h>
+
+[/code]
+
+Не забываем после этого нажать кнопку сохранить, пробуем скомпилировать проект, нажав на зелёную стрелку вверху окна Visual Studio:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/JoJB4R5e.jpg[/IMG]
+
+Если процесс компиляции завершился ошибкой то внизу окна рабочей среды выводится окно отладки содержащее информацию об ошибке, где можно отладить или устранить причину ошибки, двойным кликом мыши по надписи с ошибкой среда программирования как правило позиционирует и устанавливает курсор на участке кода вызвавшего эту ошибку, обычно она выводится в окне Output:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/ggBnSqR6.jpg[/IMG]
+
+Если же процесс компиляции прошёл нормально, то перед нами должно появиться окно как на рисунке представленном ниже:
+
+[IMG]http://s1.ipicture.ru/uploads/20130522/2CO9ZtHa.jpg[/IMG]
+
+Поздравляю вы совершили первый шаг по созданию вашего игрового движка. Двигаемся дальше..
+
+3) Инициализируем Direct3D:
+В "дереве" нашего проекта нажимаем правой кнопкой мыши на Header Files  в появившемся меню выбираем Add->New Item далее в окне Categories: Выбираем категорию Code, в окне Templates: выбираем Header File (.h), далее в поле Name: вводим GR_Engine, а в поле Location: указываем путь к папке C:\GreenRay\GRDebugger\Engine_Modules
+В общем выполняем все те же действия, что мы и делали ранее когда создавали файл модуля Form_Layer, кто уже забыл читаем Часть 2 п.2.1.
+
+Далее снова в "дереве" нашего проекта нажимаем правой кнопкой мыши уже на Source Files в появившемся меню выбираем Add->New Item далее в окне Categories: Выбираем категорию Code, в окне Templates: выбираем С++ File (.сpp), далее в поле Name: вводим GR_Engine, а в поле Location: указываем путь к папке C:\GreenRay\GRDebugger\Engine_Modules
+Всё теперь в "дереве" нашего проекта к существующим Form_Layer.h и Form_Layer.cpp добавилось ещё два файла под названием GR_Engine.h и GR_Engine.cpp соответственно.
+
+Делаем двойной щелчок в "дереве" проекта на файле Form_Layer.h, стираем у него всё содержимое и меняем на это:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine Debugger Module v.3.0.0.2
+// Form_Layer.h
+// It's An GreenRay Form_Layer Header File.
+/*****************************************************************************/
+
+#include <GR_Engine.h>
+
+[/code]
+
+Потом делаем двойной щелчок на файле Form_Layer.cpp также удаляем всё его содержимое и меняем на это:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine Debugger Module v.3.0.0.2
+// Form_Layer.cpp Visual Studio 8 Version.
+// It's An GreenRay Form_Layer Source File.
+// Made Specially For Check And Debugging 3DEngine.
+/*****************************************************************************/
+#define STRICT //Обеспечивает переносимость кода, к примеру мы прогу пишем на другой
+//винде 16 разрядной к примеру, а объявление этого параметра позволит избежать многих ошибок при 
+//компиляции уже к примеру под 32 разрядной ОС.
+//Использование STRICT позволяет: 
+//1) выполнять строгую проверку типов; 
+//2) корректировать и согласовывать описания типа параметра и возвращаемого значения; 
+//3) создавать прототипы определений типов для функций обратного вызова (оконные, диалоговые и специальные процедуры); 
+//4) согласовывать с ANSI описания структур COMM, DCB и COMSTAT. 
+//ну и многое другое, не будем уже углубляться в эти программистские Debri.
+
+#define WIN32_LEAN_AND_MEAN //Позволяет обоийти ошибки множественного объявления 
+//стркутур при подключении заголовочных файлов уже имеющих эти структуры. 
+
+#include "Form_Layer.h" //Объявляем здесь наш заголовочный Header-файл
+
+////////////////////////////////////////////////////////////////////////////////
+// External Definitions And Prototypes 
+////////////////////////////////////////////////////////////////////////////////
+LRESULT CALLBACK WindowProcessing(HWND Hndl_Wnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nCmdShow);
+
+//-----------------------------------------------------------------------------
+// Name: WindowProcessing()
+// Desc: Здесь обрабатываются оконные сообщения
+//-----------------------------------------------------------------------------
+LRESULT CALLBACK WindowProcessing(HWND Hndl_Wnd,UINT Msg,WPARAM wParam,LPARAM lParam)
+{
+  switch(Msg)
+  {
+    case WM_KEYDOWN:
+    {
+      if (wParam == VK_ESCAPE) //Перехватили нажатие кнопки Esc на клавиатуре
+      {
+        PostQuitMessage(0); break; //Обрабатываем
+      }
+    }
+    break;
+
+    case WM_CLOSE: //Перехватили момент закрытия окна при нажатии на крестике в углу экрана 
+    {
+      PostQuitMessage(0); //Обрабатываем
+    }
+        
+    case WM_DESTROY: //Перехватили момент закрытия окна через трей или диспетчер задач Windows
+    {
+      PostQuitMessage(0); //Обрабатываем
+    }
+    break;
+
+    default:
+    {
+      return DefWindowProc(Hndl_Wnd,Msg,wParam,lParam); //А иначе продолжаем обрабатывать сообщения
+    }
+    break;
+  }
+  return 0;
+
+  //Вообще здесь можно обрабатывать любые оконные сообщения, по сути даже осуществить 
+  //управление игровым персонажем, но мы будем использовать для этого DirectInput.
+} //EndWindowProcessingFunction
+
+//-----------------------------------------------------------------------------
+// Name: WinMain()
+// Desc: Эта функция предназначена для создания нашего окна
+// Это является точкой входа для нашего приложения, иначе в процессе компиляции
+// вернётся сообщение об ошибке: Entry point must be defined.
+//-----------------------------------------------------------------------------
+int WINAPI WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,
+LPSTR lpCmdLine,int nCmdShow)
+{
+  WNDCLASSEX WindowClass; //Структура необходимая для регистрации оконного класса 
+  MSG uMsg; //Оконные сообщения
+  HWND Hndl_Wnd = NULL; //Дескриптор оконного класса
+
+  int FormWidth = 640; //Ширина нашего окна 
+  int FormHeight = 480; //Высота нашего окна
+  LPCSTR FormCaption = "GreenRay Engine v3.0.0.2"; //Название выводимое в заголовке окна
+
+  memset(&uMsg,0,sizeof(uMsg)); //Передача в структуру флага для оконных сообщений
+
+  //Установка параметров окна, таких как цвет, иконка, стиль окна, курсор
+  //и передача их структуре WNDCLASSEX
+  WindowClass.lpszClassName = "MainWindow";
+  WindowClass.cbSize        = sizeof(WNDCLASSEX);
+  WindowClass.style         = CS_DBLCLKS|CS_OWNDC|CS_HREDRAW|CS_VREDRAW;
+  WindowClass.lpfnWndProc   = WindowProcessing;
+  WindowClass.hInstance     = hInstance;
+  WindowClass.hIcon            = ::LoadIcon(0,IDI_APPLICATION);
+  WindowClass.hIconSm        = ::LoadIcon(0,IDI_APPLICATION);
+  WindowClass.hCursor       = LoadCursor(NULL,IDC_ARROW);
+  WindowClass.hbrBackground = (HBRUSH)GetStockObject(WHITE_BRUSH);
+  WindowClass.lpszMenuName  = NULL;
+  WindowClass.cbClsExtra    = 0;
+  WindowClass.cbWndExtra    = 0;
+
+  //Регистрация класса окна
+  if (!RegisterClassEx(&WindowClass)) return E_FAIL;
+
+  //Теперь когда класс зарегистрирован можно создавать само окно
+  Hndl_Wnd = CreateWindowEx(NULL,              //Window Style
+                         "MainWindow",         //Window Class Name 
+                         FormCaption,          //Caption Of The Window
+                         WS_OVERLAPPEDWINDOW,  //Window Style Criterium
+                         100,100,              //Left And Top Corner On Desktop
+                         FormWidth,FormHeight, //Width And Height Of The Window
+                         NULL,                 //Descriptor Of Parent Window
+                         NULL,                 //Descriptor Of The Window Menu
+                         hInstance,            //Descriptor Of Example Application
+                         NULL);                //Pointer On Data Created Window
+
+  //Если создание окна прошло неудачно, то функция вернёт ошибку
+  if (Hndl_Wnd == NULL) return E_FAIL;
+
+  ShowWindow(Hndl_Wnd,nCmdShow); //Иначе покажем
+  UpdateWindow(Hndl_Wnd); //и обновим наше окно
+
+  //Создаём наше Direct3D устройство и укажем Handle нашего окна куда будет в 
+  //дальнейшем выводиться графика
+  CreateDirect3D(Hndl_Wnd);
+
+  //Здесь наше окно начинает интенсивно обрабатывать сообщения от Windows
+  //"крутим" этот цикл пока не поступит комманда закрытия нашего окна
+  while (uMsg.message != WM_QUIT)
+  {
+    if (PeekMessage(&uMsg,NULL,0,0,PM_REMOVE)) //Нддаа если возникает это событие, то
+                                               //происходит уже явный перебор потока сообщений!
+    {                                          //они начинают попросту удаляться из потока (данный манёвр 
+                                               //позволяет немного разгрузить процессор)
+      TranslateMessage(&uMsg); //Трансляция, перевод потока сообщений
+      DispatchMessage(&uMsg); //Обслуживание потока сообщений
+    } 
+    //Всё ОК рендерим нашу сцену
+    else RenderingDirect3D();
+  }
+
+  ReleaseDirect3D(); //Освобождение ресурсов и выгрузка Direct3D
+ 
+  //Выгрузка оконного класса он выполнил своё предназначение ;-)
+  UnregisterClass("MY_WINDOWS_CLASS",WindowClass.hInstance);
+  return uMsg.wParam;
+} //EndWinMainFunction
+
+[/code]
+
+Тут же быстренько нажимаем на GR_Engine.h и вставляем это:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GREngine.h Visual Studio 8 Version.
+// It's An GreenRay GR_Engine Header File.
+/*****************************************************************************/
+#define STRICT
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+
+//Windows And System Directives
+#include <windows.h>
+#include <atlstr.h>   
+#include <stdio.h>
+#include <tchar.h>
+#include <wchar.h>
+#include <strsafe.h>
+
+//Direct3D Directives
+#include <d3d9.h>
+#include <d3dx9.h>
+#include <d3dx9core.h>
+#include <d3dx9mesh.h>
+#include <dinput.h>
+
+////////////////////////////////////////////////////////////////////////////////
+// External Definitions And Prototypes 
+////////////////////////////////////////////////////////////////////////////////
+HRESULT CreateDirect3D(HWND Hndl_Wnd);
+void RenderingDirect3D();
+void ReleaseDirect3D();
+
+[/code]

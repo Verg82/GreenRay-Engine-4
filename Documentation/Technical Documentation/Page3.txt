@@ -1,0 +1,742 @@
+[font=verdana][SIZE=6][color=darkblue][b]Часть 2. Программирование игрового движка (Продолжение..)[/b][/color][/SIZE][/font]
+
+[b]Вступление.[/b]
+
+Итак продолжим разработку игрового движка, сорри за столь длительный перерыв,
+было много дел..
+
+В данных разделах мы рассмотрим, как осуществляется привязка камеры к движку,
+также начнём работу с текстурированием и моделированием простейших объектов - 
+создадим SkyBox, понятие SkyBox разбиралось в предыдущей статье так, что можно прочитать, что это такое и для чего это нужно именно там. 
+
+Рассматривать и разбирать как делаются всякие детские вращающиеся кубики мы не будем, а займёмся серьёзными "игровыми" вещами.. мы же с вами делаем игру, а не рекламный ролик :)))
+
+[b]2.2. Привязка камеры к проекту.[/b]
+В данном разделе статьи мы рассмотрим как привязать "камеру" к нашему проекту.
+Как уже описывалось ранее сама камера будет реализована на DirectInput.
+
+Для этого выполним следующие действия:
+
+1) Для начала создадим новый файл под названием GR_Camera.cpp:
+Для этого в "дереве" нашего проекта выбираем Source Files и нажимаем на нём правой кнопкой мыши, далее из выпадающего меню выбираем Add->New Item.. В общем делаем всё по аналогии как описано в пункте 2.1. предыдущей статьи, только не забудьте этот созданный модуль сохранить в папку Engine_Modules (или как она у вас там теперь называется?? :))).
+
+2) Также необходимо создать файл GR_Camera.h:
+Для этого также в "дереве" проекта выбираем Header Files, и не забываем сохранить этот файл также в папке Engine_Modules.
+
+Всё мы создали заготовки файлов GR_Camera.h и GR_Camera.cpp (пара - заголовочный .h и .cpp файлы). Начинаем программирование..
+
+[b]2.3. Подключение и инициализация устройства ввода DirectInput.[/b]
+Для начала прежде чем работать с "камерой" в движке мы должны подготовить и инициализировать устройство ввода, т.е. иными словами подключить возможность управления объектами или вращением объектов используя клавиатуру или мышь, будь то просто управление "взглядом" камеры дающее возможность непосредственно
+оглядываться да и просто смотреть по сторонам, или обработка нажатия кнопок мыши или клавиатуры для реализации "выстрелов" из оружия к примеру... Всё это мы будем делать и разбирать в дальнейшем.
+
+Поток данных поступаемых от клавиатуры или мыши обрабатывается непрерывно в следствие чего возможна обработка одновременного нажатия нескольких кнопок на клавиатуре, мыши, тут же одновременного вращения и обзора мышью по сторонам, чем и был обусловлен переход GRE на DirectInput.
+
+1) Для начала необходимо выбрать из "дерева" нашего проекта GR_Engine.h сделав на нём двойной щелчок мыши, 
+стереть полностью его содержимое и заменить на это:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GR_Engine.h Visual Studio 8 Version.
+// It's An GreenRay GREngine Header File.
+// Made Specially For Implement 3D Engine Parameters.
+/*****************************************************************************/
+#define STRICT
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+
+//Windows And System Directives
+#include <windows.h>
+#include <atlstr.h>   
+#include <stdio.h>
+#include <tchar.h>
+#include <wchar.h>
+#include <strsafe.h>
+
+//Direct3D Directives
+#include <d3d9.h>
+#include <d3dx9.h>
+#include <d3dx9core.h>
+#include <d3dx9mesh.h>
+#include <dinput.h>
+
+//Sound System Directives
+#include <mmsystem.h>
+#include <dshow.h>
+#include <dsound.h>
+#include <dmusici.h>
+
+////////////////////////////////////////////////////////////////////////////////
+// External Definitions And Prototypes 
+////////////////////////////////////////////////////////////////////////////////
+HRESULT CreateDirect3D(HWND Hndl_Wnd);
+void RenderingDirect3D();
+void ReleaseDirect3D();
+
+////////////////////////////////////////////////////////////////////////////////
+// Global Variables
+////////////////////////////////////////////////////////////////////////////////
+extern HWND FormL_HWnd; //Global Form Layer HWnd Handle
+
+[/code]
+
+Теперь разберём следующий участок кода:
+
+[code=cpp]
+...
+void ReleaseDirect3D();
+
+////////////////////////////////////////////////////////////////////////////////
+// Global Variables
+////////////////////////////////////////////////////////////////////////////////
+extern HWND FormL_HWnd; //Хендл нашего ранее созданного игрового полотна
+...
+
+[/code]
+
+Здесь в участке кода мы объявляем глобальную переменную FormL_HWnd которая будет хранить в себе значение или Handle нашего ранее созданного окна для вывода графики (обычно все окна в  системе Windows имеют свой уникальный номер (даже скрытые и невидимые) для того, чтобы ось (операционная система) могла определить различные привязки, вызовы, какие окна запущены и работают, и просто знать к какому конкретному окну происходит обращение, и обратиться к нему можно по 
+этому уникальному номеру который и будет "передан" и присвоен этой нашей переменной).  В принципе, получив нужный Handle окна можно делать с ним практически, что угодно - менять заголовки,  надписи в самой форме этого окна, получать его изображение, но это мы пожалуй разбирать здесь  уже не будем, так как это уже выходит за рамки документации GRE.. 
+
+2) Теперь из "дерева" проекта выбираем GR_Engine.cpp - делаем также на нём двойной щелчок мыши, стираем полностью его содержимое и меняем на это:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GR_Engine.cpp Visual Studio 8 Version.
+// It's An GreenRay GREngine Source File.
+// Made Specially For Implement 3D Engine Parameters.
+/*****************************************************************************/
+//#pragma comment(lib,"d3d9.lib");
+//#pragma comment(lib,"d3dx9.lib");
+#include <GR_Engine.h>
+#include <GR_Methods.h>
+#include <GR_Camera.h>
+#include <GR_SkyBox.h>
+
+////////////////////////////////////////////////////////////////////////////////
+// Global Variables 
+////////////////////////////////////////////////////////////////////////////////
+IDirect3DDevice9* m_pDevice = NULL; //The Direct3D Device Interface
+HWND FormL_HWnd; //Form Layer Handle
+
+CGRDeltaTimer* gr_Timer = NULL; //GreenRay Delta Timer Interface Class
+CGRCamera* gr_Camera = NULL; //GreenRay Camera Global Interface Class
+CGRSkyBox* gr_SkyBox = NULL; //GreenRay SkyBox Global Interface Class
+
+//-----------------------------------------------------------------------------
+// Name: CreateDirect3D()
+// Desc: Эта функция создаёт основное Direct3D устройство
+//-----------------------------------------------------------------------------
+HRESULT CreateDirect3D(HWND Hndl_Wnd)
+{
+  HRESULT m_pResult = S_OK; //Set Result By Default
+  IDirect3D9* m_pDirect3D = NULL; //This General Direct3D Initialization Interface
+
+  //Создаём объект Direct3D
+  m_pDirect3D = Direct3DCreate9(D3D_SDK_VERSION);
+
+  //Проверяем, если возникнет ошибка то освобождаем D3D интерфейс
+  if (!m_pDirect3D)
+  {
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();
+    MessageBoxA(NULL,"GR_Engine.cpp: Failed To Create Direct3D Interface..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //Автоматическая проверка параметров поддерживаемых дисплеем
+  //далее полученные параметры помещаются в стркутуру m_pDisplay
+  D3DDISPLAYMODE m_pDisplay; 
+  if (FAILED(m_pDirect3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT,&m_pDisplay)))
+  {
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();
+    MessageBoxA(NULL,"GR_Engine.cpp: Failed Get Adapter Display Mode..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //All System Checks Passed, Create The Direct3D Device
+  D3DPRESENT_PARAMETERS m_pD3DParam;
+  memset(&m_pD3DParam,0,sizeof(m_pD3DParam));
+
+  //Установка параметров и режимов работы Direct3D устройства 
+  m_pD3DParam.SwapEffect                 = D3DSWAPEFFECT_DISCARD; //D3DSWAPEFFECT_COPY;
+  
+  //Установка разрешения
+  m_pD3DParam.BackBufferWidth            = 640; 
+  m_pD3DParam.BackBufferHeight           = 480;
+  //Здесь указывается режим работы устройства в полный экран (FALSE) или в окне (TRUE)
+  //угадайте в каком режиме будет у нас :-))
+  m_pD3DParam.Windowed                   = TRUE;
+
+  //Формат заднего буфера, обычно определяется автоматически (m_pDisplay.Format), 
+  //но можно указать и вручную в зависимости от поставленных целей
+  m_pD3DParam.BackBufferFormat           = m_pDisplay.Format; //D3DFMT_A8R8G8B8 
+
+  //Данный параметр необходимо раскомментировать лишь в том случае, если наше 
+  //приложение будет работать на полный экран (здесь как правило указывается 
+  //частота развёртки монитора) крайне не советую "играться" с этим параметром, 
+  //пусть уж частота определится автоматически (m_pDisplay.RefreshRate)
+  //m_pD3DParam.FullScreen_RefreshRateInHz = m_pDisplay.RefreshRate; //D3DPRESENT_RATE_DEFAULT; 
+  
+  //Включение "стенсельного" буфера, в основном предназначен в дальнейшем для отрисовки
+  //эффектов теней и зеркал, короче повторяет очертания исходного объекта
+  m_pD3DParam.EnableAutoDepthStencil     = TRUE;
+
+  //Здесь уже указывается формат "стенсельного" буфера
+  m_pD3DParam.AutoDepthStencilFormat     = D3DFMT_D16; //D3DFMT_D16 D3DFMT_D15S1 D3DFMT_D24X8
+                                                       //D3DFMT_D24S8 D3DFMT_D24X4S4 D3DFMT_D32
+  
+  //Количество задних буферов
+  m_pD3DParam.BackBufferCount            = 2;
+
+  //Кол-во степеней сглаживания для антиалиасинга
+  m_pD3DParam.MultiSampleType            = D3DMULTISAMPLE_4_SAMPLES; //4_SAMPLES //For Antialiasing Mode On 4x
+  
+  //Качество сглаживания
+  //m_pD3DParam.MultiSampleQuality       = 1;
+  
+  //Буфер глубины обычно активируется для создания эффекта Shadow Volume "тень" 
+  //m_pD3DParam.Flags                    = D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL; //|D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
+  
+  //Интервал представления отображаемых объектов и игровой сцены
+  m_pD3DParam.PresentationInterval       = D3DPRESENT_INTERVAL_ONE;
+
+  //Если раскомментировать этот параметр, то ощутится явный прирост fps и вообще
+  //сцена начнёт отображаться существенно быстрее, т.е помимо видеокарты в процессе 
+  //рендеринга начнёт участвовать ваш центральный процессор и загрузит его на 100%
+  //Данный параметр использовать не рекомендуется, система работает на износ..
+  //Да и вообще процессорное время лучше поберечь для других нужд, 
+  //хотя-бы на обработку физики игры..
+  //m_pD3DParam.PresentationInterval     = D3DPRESENT_INTERVAL_IMMEDIATE;
+
+  FormL_HWnd = Hndl_Wnd; //Set Layer Window Handle
+
+  //Создание Direct3D устройства, "скармливаем" ранее установленные параметры нашему устройству
+  //Также указываем Handle (Hndl_Wnd) нашего ранее созданного окна, то бишь полотна куда будет выводиться графика 
+  if (FAILED(m_pDirect3D->CreateDevice(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,Hndl_Wnd,
+  D3DCREATE_HARDWARE_VERTEXPROCESSING,&m_pD3DParam,&m_pDevice)))
+  {
+    //Ошибка создания Direct3D устройства освобождаем его
+    if (m_pDirect3D != NULL) m_pDirect3D->Release();    
+    //Вообще если возникает подобная ошибка, значит мы "скормили" нашему устройству 
+    //неверные или не поддерживаемые видеокартой параметры, попробуйте "поиграться" с другими 
+    //значениями выставляемые в параметрах, а может вы забыли поставить "дрова" на видеокарту?? :-))))
+    MessageBoxA(NULL,"GR_Engine.cpp: Error Creating Direct3D Device..",
+    "GreenRay Engine Error",MB_SYSTEMMODAL|MB_ICONERROR);
+    m_pResult = E_FAIL;
+  }
+
+  //Ending Direct3D Presets Parameters
+  if (m_pDevice != NULL)
+  {
+    //Установка режимов рендера:
+    //Весьма интересный и нужный режим состояния рендера
+    //при этом режиме происходит "отсечение" невидимых взору граней (полигонов), т.е
+    //граней находящихся с задней стороны модели или 3D объекта, они попросту не ренерятся
+    //и не отображаюся, это позволяет очень сильно разгрузить работу нашей видеокарты и всей
+    //системы в целом.
+    //Режим D3DCULL_CW - устанавливает отсечение невидимый граней
+    //Режим D3DCULL_CСW - устанавливает тоже отсечение только уже видимых граней (инверсия)
+    //Режим D3DCULL_NONE - отключает оба этих режима рендерится вся модель как есть даже 
+    //её внутренние части, это уже слишком тяжело для видеокарты, сразу же ощущается падение fps
+    //после установки этого режима.
+    m_pDevice->SetRenderState(D3DRS_CULLMODE,D3DCULL_CW);
+    
+    //Включаем буфер глубины или Z-Buffer, или эффект отдаления объектов или моделей
+    //"вглубь" экрана, да уж совсем образно объяснил..
+    m_pDevice->SetRenderState(D3DRS_ZENABLE,D3DZB_TRUE);
+
+    //Режим освещения, нам он пока не нужен, поэтому FALSE
+    m_pDevice->SetRenderState(D3DRS_LIGHTING,FALSE); 
+   
+    //Режим рендера отображающий полигоны не цельными SOLID, а в режиме сетки WIREFRAME
+    //m_pDevice->SetRenderState(D3DRS_FILLMODE,D3DFILL_WIREFRAME);
+    
+    //Установка цвета амбиентного (общего) освещения
+    //m_pDevice->SetRenderState(D3DRS_AMBIENT,0xFFFFFFFF);
+    
+    //Данная установка включает режим работы антиалиасинга (прменения эффекта сглаживания 
+    //рёбер или неровности краёв полигона называется антиалиасингом), нам пока не нужен 
+    //поэтому закомментирован
+    //m_pDevice->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS,TRUE);
+    
+    //Установка режима закраски по Гуро, обычно она устанавливается по умолчанию 
+    //(закраска по Гуро обычно нужна для сглаживания одутлых или круглых поверхностей,
+    //например чтобы шар походил на шар, а не на ребристый комок)
+    //m_pDevice->SetRenderState(D3DRS_SHADEMODE,D3DSHADE_GOURAUD);
+
+
+
+    //Cоздаём класс таймера.
+    gr_Timer = new CGRDeltaTimer(); //Construct A CGRDeltaTimer Class
+
+    //Cоздаём класс камеры
+    gr_Camera = new CGRCamera(m_pDevice); //Construct A CGRCamera Class
+    gr_Camera->SetCameraPos(D3DXVECTOR3(5.0f,50.78f,5.0f)); //Set Player Camera Position In Space
+    gr_Camera->SetCameraSpeed(40.0f); //Set Player Camera Speed
+    gr_Camera->SetMouseSpeed(0.3f); //Set Mouse Speed
+
+    //Create SkyBox Class
+    gr_SkyBox = new CGRSkyBox(m_pDevice); //Construct A CGRSkyBox Class  
+    gr_SkyBox->CreateBox(100.0f,100.0f,100.0f); //Create Our SkyBox Model With Size WHD
+    gr_SkyBox->SetTextures(TEXT("\Textures\\SkyBox\\Arch\\zneg.png"),
+                           TEXT("\Textures\\SkyBox\\Arch\\xneg.png"),
+                           TEXT("\Textures\\SkyBox\\Arch\\zpos.png"),
+                           TEXT("\Textures\\SkyBox\\Arch\\xpos.png"),
+                           TEXT("\Textures\\SkyBox\\Arch\\yneg.png"),
+                           TEXT("\Textures\\SkyBox\\Arch\\ypos.png"));
+  } //End if (m_pDevice != NULL)
+
+  if (m_pDirect3D != NULL) m_pDirect3D->Release(); //Освобождаем Direct3D интерфейс он 
+  //выполнил своё предназначение
+  return m_pResult; //В конце возвращаем результат работы функции
+} //EndCreateDirect3DFunction
+
+//-----------------------------------------------------------------------------
+// Name: RenderingDirect3D()
+// Desc: Здесь в этой процедуре происходит отрисовка нашей игровой сцены
+//-----------------------------------------------------------------------------
+void RenderingDirect3D()
+{   
+  if (m_pDevice != NULL) 
+  {
+    if (gr_Timer != NULL) gr_Timer->UpdateTimer(); //Update GreenRay Timer Every Frame
+    //Обновление и получение данных с камеры, 
+    //код процедуры находится в модуле GR_Camera.cpp
+    if (gr_Camera != NULL) gr_Camera->UpdateCamera(); //Update GreenRay Camera 
+
+    //Здесь идёт очистка заднего и Z-буфера соответственно..
+    m_pDevice->Clear(0,NULL,D3DCLEAR_TARGET/*|D3DCLEAR_STENCIL*/,
+    D3DCOLOR_XRGB(0,0,0),1.0f,0);
+    
+    //Begin Scene
+    if (SUCCEEDED(m_pDevice->BeginScene()))
+    {
+      //Рендерим SkyBox
+      if (gr_SkyBox != NULL) gr_SkyBox->Render(); //Render The SkyBox ! 
+
+      m_pDevice->EndScene();
+    }
+    m_pDevice->Present(NULL,NULL,NULL,NULL);
+  }
+} //EndRenderingDirect3DProcedure
+
+//-----------------------------------------------------------------------------
+// Name: ReleaseDirect3D()
+// Desc: Освобождение ресурсов и устройства Direct3D
+//-----------------------------------------------------------------------------
+void ReleaseDirect3D()
+{
+  if (gr_Camera != NULL) { /*gr_Camera->Release();*/ ReleaseClass(gr_Camera); DeleteClass(gr_Camera); } //Free Camera Class 
+  if (gr_SkyBox != NULL) { gr_SkyBox->Release(); ReleaseClass(gr_SkyBox); DeleteClass(gr_SkyBox); } //Free SkyBox Class
+  
+  if (m_pDevice != NULL) m_pDevice->Release();
+} //EndReleaseDirect3DProcedure
+
+//------------------------------------------------------------------------------
+
+[/code]
+
+3) Теперь займемся программированием самой DirectInput "камеры" и DI-устройства,
+для этого вернемся к ранее созданному модулю GR_Camera.h выделив и сделав на нем двойной щелчок мыши в  "дереве" проекта и заполним его следующим кодом:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GR_Camera.h
+// It's An GreenRay GR_Camera Header File.
+/*****************************************************************************/
+#pragma once
+#include <GR_Engine.h>
+#include <GR_Methods.h>
+
+////////////////////////////////////////////////////////////////////////////////
+// Classes Used By This Header
+////////////////////////////////////////////////////////////////////////////////
+//class CGRCamera;
+
+//-----------------------------------------------------------------------------
+// Name: Struct CGRCamera
+// Desc: 
+//-----------------------------------------------------------------------------
+#if !defined(AFX_CAMERA_H__)
+#define AFX_CAMERA_H__
+class CGRCamera
+{    
+public:
+  /*Public Directives*/
+  CGRCamera(LPDIRECT3DDEVICE9 pDevice);
+  virtual ~CGRCamera();
+  void Release();
+  
+  HRESULT CreateInputDevices(HWND _HWnd);
+  void UpdateCamera();
+  
+  //Установка начального расположения камеры в игровом мире или
+  //вообще установка "глаз" в нужное местоположение.
+  void SetCameraPos(D3DXVECTOR3 Pos_XYZ) { Position = Pos_XYZ; }
+
+  //Скорость передвижения камеры, т.е фактически здесь
+  //мы задаём скорость для движения камеры в стороны при управлении с клавиатуры.
+  void SetCameraSpeed(float Cam_Speed) { m_fCameraSpeed = Cam_Speed; } 
+
+  //Здесь задаётся скорость вращения и обзора мыши.
+  void SetMouseSpeed(float Mouse_Speed) { m_fMouseSpeed = Mouse_Speed; }
+ 
+  //Функция возвращающая местоположение камеры в игровом мире.
+  D3DXVECTOR3 Pos() { return Position; }
+private:
+  /*Private Directives*/ 
+  LPDIRECT3DDEVICE9 d_pDevice;      //Pointer On Direct3D Device Interface
+  IDirectInput8* m_pDirectInput;    //Base DirectInput Device
+  IDirectInputDevice8* m_pMouse;    //Mouse Input Device
+  IDirectInputDevice8* m_pKeyboard; //Keyboard Input Device
+
+  //Base Camera Directives
+  float Pitch,Yaw;
+  D3DXVECTOR3 Position;
+  D3DXVECTOR3 Target;
+  D3DXVECTOR3 Up;
+  D3DXVECTOR3 Velocity;
+  D3DXVECTOR3 Look_Vector; //Base Look Vector
+  D3DXMATRIX View;
+  D3DXMATRIX Projection;
+
+  float PosX,PosY,PosZ; 
+
+  float m_fCameraSpeed; //Set Camera Speed
+  float m_fMouseSpeed; //Set Mouse Speed
+
+  //"Тайминг" интерфейс нам понадобится позже для обработки 
+  //режима ведения огня из автоматического оружия или 
+  //одиночными выстрелами соответственно.
+  CGRTimer* m_pTimer; //Timing Interface
+};
+#endif //!defined(AFX_CAMERA_H__)
+
+////////////////////////////////////////////////////////////////////////////////
+// Global Variables Or Constants
+////////////////////////////////////////////////////////////////////////////////
+extern CGRCamera* gr_Camera; //GreenRay Camera Global Interface Class
+
+[/code]
+
+4) Модуль GR_Camera.cpp заполняем этим кодом:
+
+[code=cpp]
+/****************************************************************************/ 
+// It's Unofficial Version Of The GreenRay Engine v.3.0.0.2
+// GR_Camera.cpp
+// It's An GreenRay GR_Camera Source File.
+/*****************************************************************************/
+#include <GR_Camera.h>
+
+//////////////////////////////////////////////////////////////////////////////
+// Construction/Destruction For CGRCamera Class
+//////////////////////////////////////////////////////////////////////////////
+CGRCamera::CGRCamera(LPDIRECT3DDEVICE9 pDevice)
+{
+  //Set Default Parameters
+  d_pDevice = pDevice; //Apropritate Device Pointer To Class
+  m_pDirectInput = NULL;
+  m_pMouse = NULL;
+  m_pKeyboard = NULL;
+  m_pTimer = NULL;
+
+  //Create Input Devices
+  if (SUCCEEDED(CreateInputDevices(FormL_HWnd)))
+  {
+    m_pMouse->Acquire();
+    m_pKeyboard->Acquire();
+  }
+  
+  m_fCameraSpeed = 0.01f;
+  m_fMouseSpeed = 0.01f;
+
+  Pitch = 0.0f;
+  Yaw = 0.0f;
+  Position = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+  Target = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+  Up = D3DXVECTOR3(0.0f, 1.0f, 0.0f);
+  Velocity = D3DXVECTOR3(0.0f, 0.0f, 0.0f);
+  D3DXVec3Normalize(&Look_Vector,&(Target-Position));
+
+  //Set The Projection Matrix
+  float Aspect_Ratio = 1.0f;
+  D3DXMatrixPerspectiveFovLH(&Projection,D3DX_PI/4,Aspect_Ratio,0.1f,1000.0f);
+  d_pDevice->SetTransform(D3DTS_PROJECTION,&Projection);
+
+  m_pTimer = new CGRTimer(); //Construct A Timer Class
+} //EndConstructionDirectives
+
+CGRCamera::~CGRCamera()
+{
+} //EndDestructionDirectives
+
+//-----------------------------------------------------------------------------
+// Name: CGRCamera::Release()
+// Desc: Освобождение занятых ресурсов
+//-----------------------------------------------------------------------------
+void CGRCamera::Release()
+{
+  m_pMouse->Unacquire(); //UnControl Mouse
+  m_pKeyboard->Unacquire(); //UnControl Keyboard
+
+  ReleaseClass(m_pMouse); //Release Mouse
+  ReleaseClass(m_pKeyboard); //Release Keyboard
+  ReleaseClass(m_pDirectInput); //Release DirectInput
+
+  if (m_pTimer != NULL) { m_pTimer = NULL; DeleteClass(m_pTimer); } //Free Timer Class 
+} //EndReleaseProcedure
+
+//-----------------------------------------------------------------------------
+// Name: CGRCamera::CreateInputDevices()
+// Desc: 
+//-----------------------------------------------------------------------------
+HRESULT CGRCamera::CreateInputDevices(HWND _HWnd)
+{
+  HRESULT Result = S_OK;
+  //Create InputDevice
+  //Создаём тут основной DirectInput интерфейс с указанием его версии для DX API
+  if (FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,
+  IID_IDirectInput8,(void**)&m_pDirectInput,NULL))) 
+  {
+    //Интерфейс DirectInput вернул ошибку, чтож продолжать далее не имеет смысла
+    //Выводим сообщение об ошибке:
+    MessageBoxA(NULL,"Can't Create DirectInputContext","GreenRay Engine Error",
+    MB_SYSTEMMODAL|MB_ICONEXCLAMATION); 
+    Result = E_FAIL;
+  }
+  else //Всё в порядке продолжаем:
+  {
+    //Create Mouse Input Device
+    //Создаём виртуальное устройство ввода для мыши
+    if (FAILED(m_pDirectInput->CreateDevice(GUID_SysMouse,&m_pMouse,NULL)))
+    {
+      MessageBoxA(NULL,"Can't Create MouseInputDevice","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION); 
+      m_pDirectInput->Release(); 
+      Result = E_FAIL;
+    }
+
+    //Создаем формат данных для мыши и передаём его в структуру 
+    //DirectInput Data Format (DIDATAFORMAT)
+    if (FAILED(m_pMouse->SetDataFormat(&c_dfDIMouse2))) 
+    {
+      MessageBoxA(NULL,"Can't Set MouseDataFormat","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pMouse->Release();
+      m_pDirectInput->Release();
+      m_pMouse = NULL;
+      m_pDirectInput = NULL;
+      Result = E_FAIL;
+    }
+ 
+    if (FAILED(m_pMouse->SetCooperativeLevel(_HWnd,DISCL_FOREGROUND|DISCL_EXCLUSIVE)))
+    {
+      MessageBoxA(NULL,"Can't Set Mouse CooperativeLevel","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pMouse->Release();
+      m_pDirectInput->Release();
+      m_pMouse = NULL;
+      m_pDirectInput = NULL;
+      Result = E_FAIL;
+    }
+
+    //Create Keyboard Input Device
+    //Создаём виртуальное устройство ввода для клавиатуры
+    if FAILED(m_pDirectInput->CreateDevice(GUID_SysKeyboard,&m_pKeyboard,NULL))
+    {
+      MessageBoxA(NULL,"Can't Create KeyboardInputDevice","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pKeyboard->Release();
+      m_pKeyboard = NULL;
+      Result = E_FAIL;
+    }
+    
+    //Создаем формат данных для клавиатуры и передаём его в структуру 
+    //DirectInput Data Format (DIDATAFORMAT)
+    if (FAILED(m_pKeyboard->SetDataFormat(&c_dfDIKeyboard))) 
+    {
+      MessageBoxA(NULL,"Can't Set KeyboardDataFormat","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pMouse->Release();
+      m_pKeyboard->Release();
+      m_pDirectInput->Release();
+      m_pDirectInput = NULL;
+      Result = E_FAIL;
+    }
+
+    if (FAILED(m_pKeyboard->SetCooperativeLevel(_HWnd,DISCL_FOREGROUND|DISCL_NONEXCLUSIVE)))
+    {
+      MessageBoxA(NULL,"Can't Set Keyboard CooperativeLevel","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pMouse->Release();
+      m_pKeyboard->Release();
+      m_pDirectInput->Release();
+      m_pDirectInput = NULL;
+      Result = E_FAIL;
+    }
+
+    /*DIPROPDWORD dipdw = {
+    {
+      sizeof(DIPROPDWORD),  //diph.dwSize
+      sizeof(DIPROPHEADER), //diph.dwHeaderSize
+      0,                    //diph.dwObj
+      DIPH_DEVICE,},        //diph.dwHow
+      DINPUT_BUFFERSIZE256, //dwData
+    };
+           
+    if (FAILED(m_pKeyboard->SetProperty(DIPROP_BUFFERSIZE,&dipdw.diph)))
+    {
+      MessageBoxA(NULL,"Can't Set Property For KeyboardDevice","GreenRay Engine Error",
+      MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+      m_pMouse->Release();
+      m_pKeyboard->Release();
+      m_pDirectInput->Release();
+      m_pDirectInput = NULL;
+      return;
+    } */
+  }
+  return Result;
+} //EndCreateInputDevicesFunction
+
+//-----------------------------------------------------------------------------
+// Name: CGRCamera::UpdateCamera()
+// Desc: Poll The DirectInput Devices
+//-----------------------------------------------------------------------------
+void CGRCamera::UpdateCamera()
+{ 
+  DIMOUSESTATE2 Mouse_Data; //Value Keep Mouse States
+  char Key_Buffer[256]; //Buffer To Hold Prev. Keyboard States
+
+  //d_pDevice->TestCooperativeLevel(); 
+  float m_fForward = 0;
+  float m_fSideward = 0;
+
+  //Donation: GetMouseState 
+  if (m_pMouse != NULL) //Check On Ready Mouse
+  {         
+    //Get Mouse Input Data
+    //Перехватываем и обрабатываем входные данные поступающие от "мыши". 
+    ZeroMemory(&Mouse_Data,sizeof(Mouse_Data));
+    m_pMouse->GetDeviceState(sizeof(Mouse_Data),&Mouse_Data);
+    m_pMouse->Acquire();
+
+    //Here Getting Mouse States:
+    //Здесь получаем непосредственно координаты поступающие при движении
+    //мышкой.
+    Pitch-= (double)Mouse_Data.lY*gr_Timer->GetTime()*m_fMouseSpeed;
+    Yaw-= (double)Mouse_Data.lX*gr_Timer->GetTime()*m_fMouseSpeed;
+   
+    //Mouse Button States (0- It's Button Up)
+    //Обрабатываем нажатия кнопок мыши:
+    if ((Mouse_Data.rgbButtons[0x00] & 0x80) != 0) 
+    {
+      //Здесь происходит обработка события когда нажата левая кнопка мыши
+      //Это понадобится нам позже
+    }
+
+  }
+
+  //Donation: GetKeyboardState
+  if (m_pKeyboard != NULL) //Check On Ready Keyboard
+  {
+    //Keyboard Input Data
+    //Перехватываем и обрабатываем входные данные поступающие от клавиатуры. 
+    ZeroMemory(&Key_Buffer,sizeof(Key_Buffer));
+    m_pKeyboard->GetDeviceState(sizeof(Key_Buffer),Key_Buffer);
+    m_pKeyboard->Acquire();
+
+    //Keyboard Contol Input Mode
+    //Здесь реализовано WASD-овское управление игроком т.е вперёд, назад, вбок 
+    //и Strafe соответственно, не долго думая при желании можно переделать его 
+    //и в "тракторное" управление, кому как нравится и привычнее, тогда
+    //в клавиатурном буфере нужно поменять на: Key_Buffer[DIK_UP], Key_Buffer[DIK_DOWN],
+    //Key_Buffer[DIK_LEFT], Key_Buffer[DIK_RIGHT] соответственно..  
+    if (Key_Buffer[DIK_W] & 0x80) m_fForward = m_fCameraSpeed*gr_Timer->GetTime();
+    if (Key_Buffer[DIK_S] & 0x80) m_fForward = -m_fCameraSpeed*gr_Timer->GetTime();
+    if (Key_Buffer[DIK_A] & 0x80) m_fSideward = -m_fCameraSpeed*gr_Timer->GetTime();
+    if (Key_Buffer[DIK_D] & 0x80) m_fSideward = m_fCameraSpeed*gr_Timer->GetTime();
+    
+    //Эта строка понадобится, когда к движку будет подключен PhysX :))
+    //и здесь будет обрабатываться "прыжок" игрока..
+    //if (Key_Buffer[DIK_SPACE] & 0x80) gr_PhysX->JumpPhysXPlayer(m_fJumpSpeed); //Make The Player Jump
+  }
+
+  //Restrict The Ability To Look Too High Or Too Low
+  //Здесь происходит ограничение взгляда камеры мышью в 
+  //самой верхней точке, т.е когда мы смотрим в потолок, и 
+  //в самой нижней когда смотрим в пол..
+  //Если не применять этот "ограничитель" то при движении мышкой
+  //камера начнет прокручиваться дальше и получится совсем ненужный
+  //эффект вставания игрока в "мостик" или на "голову" при взгляде вниз.. :)))) 
+  if (Pitch < -1.56f) Pitch = -1.56f; //Y
+  if (Pitch > 1.56f) Pitch = 1.56f;
+  
+  if (Yaw >= 6.28f) Yaw = 0.0f;  //X
+  if (Yaw <= -6.28f) Yaw = 0.0f;
+
+  //Get Camera X,Y,Z Position Coordinates
+  //Получение позиции камеры игрока в пространстве..
+  //Это пригодится к примеру когда мы будем делать привязку SkyBox к
+  //нашей камере и много еще для чего в дальнейшем..
+  PosX = (cosf(Pitch)*cosf(Yaw)*10.0f);
+  PosY = (sinf(Pitch)*10.0f);
+  PosZ = (sinf(Yaw)*cosf(Pitch)*10.0f);
+
+  //Здесь идёт расчёт и преобразоание по формуле - позиций, координат, векторов и
+  //передача их в матрицы:
+  //Set The Target Of The Camera
+  Target = D3DXVECTOR3(PosX,PosY,PosZ)+Position;
+
+  //Update The Look Vector
+  D3DXVec3Normalize(&Look_Vector,&(Target-Position));
+  D3DXVECTOR3 XZLook_Vector = Look_Vector;
+  XZLook_Vector.y = 0;
+  D3DXVec3Normalize(&XZLook_Vector,&XZLook_Vector);
+  D3DXVECTOR3 Side_Vector(XZLook_Vector.z,0.0f,-XZLook_Vector.x);
+  Velocity = (XZLook_Vector*m_fForward)+(Side_Vector*m_fSideward);
+  
+
+  //Временные преобразования, после подключения PhysX их не станет..
+  //Apply Transform
+  Position+= (XZLook_Vector*m_fForward)+(Side_Vector*m_fSideward);
+  Target+= (XZLook_Vector*m_fForward)+(Side_Vector*m_fSideward);
+
+  //Update The View Matix
+  D3DXMatrixLookAtLH(&View,&Position,&Target,&Up);
+  //Update The Active View
+  d_pDevice->SetTransform(D3DTS_VIEW,&View);
+} //EndUpdateCameraProcedure
+
+//-----------------------------------------------------------------------------
+
+[/code]
+
+А сейчас разберём следующий участок кода:
+
+[code=cpp]
+...
+  if (FAILED(m_pMouse->SetCooperativeLevel(_HWnd,DISCL_FOREGROUND|DISCL_EXCLUSIVE)))
+  {
+    MessageBoxA(NULL,"Can't Set Mouse CooperativeLevel","GreenRay Engine Error",
+    MB_SYSTEMMODAL|MB_ICONEXCLAMATION);
+    m_pMouse->Release();
+    m_pDirectInput->Release(); 
+    m_pMouse = NULL;
+    m_pDirectInput = NULL;
+    Result = E_FAIL;
+  }
+...
+
+[/code]
+
+Здесь происходит подключение и привязка устройства мыши к нашему окну, 
+как видите, здесь фигурирует HWND переменная 
+_HWnd - хендл нашего окна, вот здесь при подключении мыши и позже клавиатуры мы её и применяем.
+
+[b]Примечание! [/b]Следует также отметить, что после установки кооперативного режима мышь полностью перехватывается нашим приложением, и курсор мыши становится невидимым, но чтобы его увидеть вновь - необходимо вызвать метод m_pMouse->Unacquire(); и остановив обработчик gr_Camera->UpdateCamera(); тогда наше приложение "отпустит" мышь восвояси. 
+Также курсор можно будет сэмулироать и отрисовывать отдельно, но это можно будет реализовать позже - уже при разработке графического интерфейса GRE..
+
